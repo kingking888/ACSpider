@@ -1,0 +1,7 @@
+redis
+pymongo
+requests==2.22.0
+celery==4.3.0
+PyMySQL==0.9.3
+kombu==4.6.6
+DBUtils==1.3

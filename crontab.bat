@@ -1,2 +1,2 @@
 @ECHO OFF
-celery -A spider.douyin.celeryapp.app beat -l info -P eventlet --logfile=./log/crontab.log
+celery -A spider.videos.celeryapp.app beat -l info --logfile=./log/crontab.log

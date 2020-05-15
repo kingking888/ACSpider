@@ -1,5 +1,10 @@
+import configparser
+import os
+
 from DBUtils.PooledDB import PooledDB
 import pymysql
+
+from ROOT_PATH import root
 
 
 class MysqlPool(object):
@@ -10,14 +15,16 @@ class MysqlPool(object):
         db.conn.commit()
         data = db.cursor.fetchall()
     """
-
+    conf = configparser.ConfigParser()
+    conf.read(os.path.join(root, "conf.ini"), encoding="utf-8")
+    items = dict(conf.items('mysql'))
     config = {
         'creator': pymysql,
-        'host': "127.0.0.1",
+        'host': items["host"],
         'port': 3306,
-        'user': "root",
-        'password': "1234567",
-        'db': "douyin",
+        'user': items["user"],
+        'password': items["password"],
+        'db': items["db"],
         'maxconnections': 30,
         'cursorclass': pymysql.cursors.DictCursor
     }
