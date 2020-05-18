@@ -6,6 +6,27 @@ from utils.randomStr import randomString
 import celery
 import requests
 import time
+import redis
+
+pool = redis.ConnectionPool(host='10.10.16.190', port=6379, db=1, password='Redis123.com')
+rds = redis.Redis(connection_pool=pool)
+
+
+def get_proxy():
+    proxies_list = list(rds.smembers("proxy:qingting_pool"))
+    proxyUser = "squid"
+    proxyPass = "SuosiSquid147!$&"
+    ip = random.choice(proxies_list).decode()
+    proxyMeta = "http://%(user)s:%(pass)s@%(ip)s" % {
+        "ip": ip,
+        "user": proxyUser,
+        "pass": proxyPass
+    }
+    proxies = {
+        "http": proxyMeta,
+        "https": proxyMeta,
+    }
+    return proxies
 
 
 @app.task(
@@ -74,7 +95,8 @@ def video_li(self, url):
     retry_backoff=True,
     rate_limit='200/s',
 )
-def video_li_comment(self, url):
+def video_li_comment(self, postId):
+    url = f"http://app.pearvideo.com/clt/jsp/v4/getComments.jsp?postId={postId}&score=&filterIds="
     try:
         XSerialNum = str(int(time.time()))
         XClientID = "861" + randomString(12)
@@ -103,6 +125,7 @@ def video_li_comment(self, url):
             if len(commentList) > 0:
                 commentList = res.get("commentList")
                 for comment in commentList:
+                    comment.update({"_id": postId})
                     data_app.send_task('videos.data.li', kwargs={"liComment": comment})
                 nextUrl = res.get("nextUrl")
                 if nextUrl:
@@ -116,10 +139,11 @@ def video_li_comment(self, url):
 
 
 if __name__ == '__main__':
-    pass
+    # pass
     # for i in range(1000000, 1674000):
     #     li_url = f"http://app.pearvideo.com/clt/jsp/v4/content.jsp?contId={i}"
-    #     app.send_task("videos.li.crawl", args=(li_url,))
+    app.send_task("videos.li.comment", args=(1523532,))
     # for i in range(1000000, 1674000):
-    #     li_url = url = f"http://app.pearvideo.com/clt/jsp/v4/getComments.jsp?postId={i}&score=&filterIds="
-    #     app.send_task("videos.li.crawl", args=(li_url,))
+    # li_url =
+    # app.send_task("videos.li.crawl", args=(li_url,))
+#
