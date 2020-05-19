@@ -1,5 +1,4 @@
 import random
-
 import requests
 from lxml import html
 
@@ -35,7 +34,7 @@ def getHtmlTree(url):
                'Accept-Encoding': 'gzip, deflate, sdch',
                'Accept-Language': 'zh-CN,zh;q=0.8',
                }
-    htm = requests.get(url=url, headers=headers).content
+    htm = requests.get(url=url, headers=headers, timeout=10).content
     return html.etree.HTML(htm)
 
 

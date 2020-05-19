@@ -8,8 +8,6 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from models.dataBase.redis import rds
 from utils.request import getHtmlTree, ex_request
 
-FAIL_COUNT = 0
-
 
 class GetFreeProxy(object):
     @staticmethod
@@ -268,7 +266,7 @@ def validUsefulProxy(proxy):
         proxy = proxy.decode("utf8")
     proxies = {"http": "http://{proxy}".format(proxy=proxy)}
     try:
-        r = requests.get('http://www.baidu.com', proxies=proxies, timeout=10, verify=False)
+        r = requests.get('http://www.baidu.com', proxies=proxies, timeout=5, verify=False)
         if r.status_code == 200:
             return True
     except:
@@ -285,9 +283,10 @@ def ProxyScheduler():
                 if proxy and verifyProxyFormat(proxy) and (proxy not in proxy_set):
                     proxy_set.add(proxy)
                     rds.sadd("proxies", proxy)
+            print(f"proxies size == {rds.scard('proxies')}")
         except:
             pass
-    ProxyCheckThreads(RawProxyCheck, "proxies", 5)
+    ProxyCheckThreads(RawProxyCheck, "proxies", 10)
     ProxyCheckThreads(UsefulProxyCheck, "useful_proxies", 5)
 
 
@@ -307,39 +306,44 @@ def ProxyCheckThreads(func, db, threads):
 
 def RawProxyCheck(p_queue):
     while True:
+        if p_queue.empty():
+            break
         proxy = p_queue.get(block=False)
         status = validUsefulProxy(proxy)
         if status:
             rds.sadd("useful_proxies", proxy)
+            print(f"add useful_proxies {proxy},useful_proxies size = {rds.scard('useful_proxies')}")
         else:
             rds.srem("proxies", proxy)
+            print(f"del proxies {proxy},proxies size = {rds.scard('proxies')}")
         p_queue.task_done()
 
 
 def UsefulProxyCheck(p_queue):
     while True:
+        if p_queue.empty():
+            break
         proxy = p_queue.get(block=False)
         status = validUsefulProxy(proxy)
         if not status:
             rds.srem("useful_proxies", proxy)
+            print(f"del useful_proxies {proxy},useful_proxies size = {rds.scard('useful_proxies')}")
         p_queue.task_done()
 
 
 def runProxy():
     ProxyScheduler()
     scheduler = BlockingScheduler()
-    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(RawProxyCheck, "proxies", 5), minutes=5,
+    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(RawProxyCheck, "proxies", 10), minutes=7,
                       id="raw_proxy_check", name="raw_proxy定时采集")
-    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(UsefulProxyCheck, "proxies", 5), minutes=1,
+    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(UsefulProxyCheck, "useful_proxies", 5), minutes=2,
                       id="useful_proxy_check", name="useful_proxy定时检查")
     scheduler.start()
 
 
 if __name__ == '__main__':
-    pass
     runProxy()
     # GetFreeProxy().checkAllGetProxyFunc()
     # GetFreeProxy().checkGetProxyFunc("freeProxy09")
-    # checkAllGetProxyFunc()
     # for i in GetFreeProxy.proxyNames():
     #     GetFreeProxy.checkGetProxyFunc(i)
