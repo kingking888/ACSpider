@@ -1,12 +1,10 @@
-import json
+import inspect
 import re
 from queue import Queue
 from time import sleep
 import threading
-from datetime import datetime
 import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
-from models.proxy_pool.Proxy import Proxy
 from models.dataBase.redis import rds
 from utils.request import getHtmlTree, ex_request
 
@@ -58,7 +56,7 @@ class GetFreeProxy(object):
                     try:
                         yield ':'.join(proxy.xpath('./td/text()')[0:2])
                     except Exception as e:
-                        pass
+                        print(str(e))
 
     @staticmethod
     def freeProxy03():
@@ -95,7 +93,7 @@ class GetFreeProxy(object):
 
                 yield '{}:{}'.format(ip_addr, int(port))
             except Exception as e:
-                pass
+                print(str(e))
 
     @staticmethod
     def freeProxy04():
@@ -207,6 +205,46 @@ class GetFreeProxy(object):
             for ip in ips:
                 yield ip.strip()
 
+    @classmethod
+    def checkAllGetProxyFunc(cls):
+        member_list = inspect.getmembers(cls, predicate=inspect.isfunction)
+        proxy_count_dict = dict()
+        for func_name, func in member_list:
+            print(u"开始运行 {}".format(func_name))
+            try:
+                proxy_list = [_ for _ in func() if verifyProxyFormat(_)]
+                proxy_count_dict[func_name] = len(proxy_list)
+            except Exception as e:
+                print(u"代理获取函数 {} 运行出错!".format(func_name))
+                print(str(e))
+        print(u"所有函数运行完毕 " + "***" * 5)
+        for func_name, func in member_list:
+            print(u"函数 {n}, 获取到代理数: {c}".format(n=func_name, c=proxy_count_dict.get(func_name, 0)))
+
+    @classmethod
+    def checkGetProxyFunc(cls, func_name):
+        """
+        检查指定的getFreeProxy某个function运行情况
+        Args:
+            func: getFreeProxy中某个可调用方法
+
+        Returns:
+            None
+            :param func_name:
+        """
+        func = getattr(cls, func_name)
+        print("start running func: {}".format(func_name))
+        count = 0
+        for proxy in func():
+            if verifyProxyFormat(proxy):
+                print("{} fetch proxy: {}".format(func_name, proxy))
+                count += 1
+        print("{n} completed, fetch proxy number: {c}".format(n=func_name, c=count))
+
+    @classmethod
+    def proxyNames(cls):
+        return [i[0] for i in inspect.getmembers(cls, predicate=inspect.isfunction)]
+
 
 def verifyProxyFormat(proxy):
     """
@@ -233,177 +271,75 @@ def validUsefulProxy(proxy):
         r = requests.get('http://www.baidu.com', proxies=proxies, timeout=10, verify=False)
         if r.status_code == 200:
             return True
-    except Exception as e:
+    except:
         pass
     return False
 
 
-def checkAllGetProxyFunc():
-    """
-    检查getFreeProxy所有代理获取函数运行情况
-    Returns:
-        None
-    """
-    import inspect
-    member_list = inspect.getmembers(GetFreeProxy, predicate=inspect.isfunction)
-    proxy_count_dict = dict()
-    for func_name, func in member_list:
-        print(u"开始运行 {}".format(func_name))
-        try:
-            proxy_list = [_ for _ in func() if verifyProxyFormat(_)]
-            proxy_count_dict[func_name] = len(proxy_list)
-        except Exception as e:
-            print(u"代理获取函数 {} 运行出错!".format(func_name))
-            print(str(e))
-    print(u"所有函数运行完毕 " + "***" * 5)
-    for func_name, func in member_list:
-        print(u"函数 {n}, 获取到代理数: {c}".format(n=func_name, c=proxy_count_dict.get(func_name, 0)))
-
-
-def checkGetProxyFunc(func):
-    """
-    检查指定的getFreeProxy某个function运行情况
-    Args:
-        func: getFreeProxy中某个可调用方法
-
-    Returns:
-        None
-    """
-    func_name = getattr(func, '__name__', "None")
-    print("start running func: {}".format(func_name))
-    count = 0
-    for proxy in func():
-        if verifyProxyFormat(proxy):
-            print("{} fetch proxy: {}".format(func_name, proxy))
-            count += 1
-    print("{n} completed, fetch proxy number: {c}".format(n=func_name, c=count))
-
-
-def checkProxyUseful(proxy_obj):
-    """
-    检测代理是否可用
-    :param proxy_obj: Proxy object
-    :return: Proxy object, status
-    """
-
-    if validUsefulProxy(proxy_obj.proxy):
-        # 检测通过 更新proxy属性
-        proxy_obj.check_count += 1
-        proxy_obj.last_status = 1
-        proxy_obj.last_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if proxy_obj.fail_count > 0:
-            proxy_obj.fail_count -= 1
-        return proxy_obj, True
-    else:
-        proxy_obj.check_count += 1
-        proxy_obj.last_status = 0
-        proxy_obj.last_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        proxy_obj.fail_count += 1
-        return proxy_obj, False
-
-
 def ProxyScheduler():
     proxy_set = set()
-    a = [
-        "freeProxy01",
-        "freeProxy02",
-        "freeProxy03",
-        "freeProxy04",
-        "freeProxy05",
-        "freeProxy06",
-        "freeProxy07",
-        "freeProxy08",
-        "freeProxy09",
-        "freeProxy10",
-    ]
-    for i in a:
+    for i in GetFreeProxy.proxyNames():
         try:
-            for p in getattr(GetFreeProxy, i.strip())():
+            for p in getattr(GetFreeProxy, i)():
                 proxy = p.strip()
                 if proxy and verifyProxyFormat(proxy) and (proxy not in proxy_set):
                     proxy_set.add(proxy)
-                    rds.sadd("proxies", json.dumps(Proxy(proxy, source=i).info_dict))
-        except Exception as e:
-            print(str(e))
-    rawProxyCheck()
-    UsefulProxyCheck()
+                    rds.sadd("proxies", proxy)
+        except:
+            pass
+    ProxyCheckThreads(RawProxyCheck, "proxies", 5)
+    ProxyCheckThreads(UsefulProxyCheck, "useful_proxies", 5)
 
 
-def rawProxyCheck():
+def ProxyCheckThreads(func, db, threads):
     proxy_queue = Queue()
-    for _proxy in rds.smembers("proxies"):
+    for _proxy in rds.smembers(db):
         proxy_queue.put(_proxy)
     thread_list = list()
-    for index in range(3):
-        thread = threading.Thread(target=RawProxyCheck_, args=(proxy_queue,))
+    for index in range(threads):
+        thread = threading.Thread(target=func, args=(proxy_queue,))
         thread_list.append(thread)
-
     for thread in thread_list:
         thread.start()
-
     for thread in thread_list:
         thread.join()
 
 
-def RawProxyCheck_(queue):
+def RawProxyCheck(p_queue):
     while True:
-        proxy_json = queue.get(block=False)
-        proxy_obj = Proxy.newProxyFromJson(proxy_json)
-        proxy_obj, status = checkProxyUseful(proxy_obj)
+        proxy = p_queue.get(block=False)
+        status = validUsefulProxy(proxy)
         if status:
-            rds.sadd("useful_proxies", proxy_obj.proxy)
-        queue.task_done()
-
-
-def UsefulProxyCheck():
-    proxy_queue = Queue()
-
-    for _proxy in rds.smembers("useful_proxies"):
-        proxy_queue.put(_proxy)
-
-    thread_list = list()
-    for index in range(10):
-        thread = threading.Thread(target=UsefulProxyCheck_, args=(proxy_queue,))
-        thread_list.append(thread)
-
-    for thread in thread_list:
-        thread.start()
-
-    for thread in thread_list:
-        thread.join()
-
-
-def UsefulProxyCheck_(proxy_queue):
-    while True:
-        proxy_json = proxy_queue.get(block=False)
-        proxy_obj = Proxy.newProxyFromJson(proxy_json)
-        proxy_obj, status = checkProxyUseful(proxy_obj)
-        if status or proxy_obj.fail_count < FAIL_COUNT:
-            rds.sadd("useful_proxies", proxy_obj.proxy)
+            rds.sadd("useful_proxies", proxy)
         else:
-            rds.srem("useful_proxies", proxy_obj.proxy)
-        proxy_queue.task_done()
+            rds.srem("proxies", proxy)
+        p_queue.task_done()
+
+
+def UsefulProxyCheck(p_queue):
+    while True:
+        proxy = p_queue.get(block=False)
+        status = validUsefulProxy(proxy)
+        if not status:
+            rds.srem("useful_proxies", proxy)
+        p_queue.task_done()
 
 
 def runProxy():
     ProxyScheduler()
     scheduler = BlockingScheduler()
-    scheduler.add_job(rawProxyCheck, 'interval', minutes=5, id="raw_proxy_check", name="raw_proxy定时采集")
-    scheduler.add_job(UsefulProxyCheck, 'interval', minutes=1, id="useful_proxy_check", name="useful_proxy定时检查")
+    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(RawProxyCheck, "proxies", 5), minutes=5,
+                      id="raw_proxy_check", name="raw_proxy定时采集")
+    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(UsefulProxyCheck, "proxies", 5), minutes=1,
+                      id="useful_proxy_check", name="useful_proxy定时检查")
     scheduler.start()
 
 
 if __name__ == '__main__':
     pass
     runProxy()
+    # GetFreeProxy().checkAllGetProxyFunc()
+    # GetFreeProxy().checkGetProxyFunc("freeProxy09")
     # checkAllGetProxyFunc()
-    # checkGetProxyFunc(GetFreeProxy.freeProxy01)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy02)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy03)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy04)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy05)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy06)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy07)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy08)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy09)
-    # checkGetProxyFunc(GetFreeProxy.freeProxy10)
+    # for i in GetFreeProxy.proxyNames():
+    #     GetFreeProxy.checkGetProxyFunc(i)
