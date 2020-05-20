@@ -1,5 +1,5 @@
 from celery import Celery
-from spider.videos.celeryconfig import DevelopConfig, DataConfig
+from spider.videos.celeryconfig import AppConfig, DataAppConfig
 
 app = Celery(
     'app',
@@ -7,7 +7,7 @@ app = Celery(
         'spider.videos.tasks.tasks',
     ]
 )
-app.config_from_object(DevelopConfig)
+app.config_from_object(AppConfig)
 
 
 data_app = Celery(
@@ -16,5 +16,8 @@ data_app = Celery(
         'spider.videos.tasks.data',
     ]
 )
-data_app.config_from_object(DataConfig)
+data_app.config_from_object(DataAppConfig)
+
+if __name__ == '__main__':
+    data_app.start()
 

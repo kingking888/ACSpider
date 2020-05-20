@@ -1,32 +1,11 @@
-import random
+import re
 
-from spider.videos.celeryapp import app, data_app
-from utils.encrypt import md5_string
-from utils.randomStr import randomString
 import celery
 import requests
 import time
-import redis
-
-pool = redis.ConnectionPool(host='10.10.16.190', port=6379, db=1, password='Redis123.com')
-rds = redis.Redis(connection_pool=pool)
-
-
-def get_proxy():
-    proxies_list = list(rds.smembers("proxy:qingting_pool"))
-    proxyUser = "squid"
-    proxyPass = "SuosiSquid147!$&"
-    ip = random.choice(proxies_list).decode()
-    proxyMeta = "http://%(user)s:%(pass)s@%(ip)s" % {
-        "ip": ip,
-        "user": proxyUser,
-        "pass": proxyPass
-    }
-    proxies = {
-        "http": proxyMeta,
-        "https": proxyMeta,
-    }
-    return proxies
+from spider.videos.celeryapp import app, data_app
+from utils.encrypt import md5_string
+from utils.randomStr import randomString
 
 
 @app.task(
@@ -36,7 +15,7 @@ def get_proxy():
     retry_backoff=True,
     rate_limit='1/s',
 )
-def video_test(self):
+def videoTest(self):
     url = "https://aweme.snssdk.com/aweme/v1/hot/search/list/"
     headers = {"Charset": "UTF-8",
                "User-Agent": "Mozilla/5.0 (Linux; Android 5.1.1; SM-G9350 Build/LMY48Z; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.100 Safari/537.36 haokan/5.11.0.10 (Baidu; P1 5.1.1)/gnusmas_22_1.1.5_0539G-MS/1014613h/F27F5C565733789471232729BAB5C37C%7CO/1/5.11.0.10/511001/1",
@@ -51,9 +30,9 @@ def video_test(self):
     bind=True,
     max_retries=8,
     retry_backoff=True,
-    rate_limit='200/s',
+    rate_limit='150/s',
 )
-def video_li(self, url):
+def videoLi(self, url):
     try:
         XSerialNum = str(int(time.time()))
         XClientID = "861" + randomString(12)
@@ -93,10 +72,9 @@ def video_li(self, url):
     bind=True,
     max_retries=8,
     retry_backoff=True,
-    rate_limit='200/s',
+    rate_limit='150/s',
 )
-def video_li_comment(self, postId):
-    url = f"http://app.pearvideo.com/clt/jsp/v4/getComments.jsp?postId={postId}&score=&filterIds="
+def videoLiComment(self, commentUrl):
     try:
         XSerialNum = str(int(time.time()))
         XClientID = "861" + randomString(12)
@@ -117,33 +95,44 @@ def video_li_comment(self, postId):
             "Connection": "Keep-Alive",
             "Accept-Encoding": "gzip",
             "User-Agent": "okhttp/3.11.0"}
-        res = requests.get(url, headers=headers, timeout=5).json()
+        res = requests.get(commentUrl, headers=headers, timeout=5).json()
         resultCode = res.get("resultCode")
         commentList = res.get("commentList")
-
-        if resultCode == '1':
-            if len(commentList) > 0:
-                commentList = res.get("commentList")
-                for comment in commentList:
-                    comment.update({"_id": postId})
-                    data_app.send_task('videos.data.li', kwargs={"liComment": comment})
-                nextUrl = res.get("nextUrl")
-                if nextUrl:
-                    app.send_task("videos.li.comment", args=(nextUrl,))
+        nextUrl = res.get("nextUrl")
+        postId = re.findall("postId=(\d+)?&", commentUrl)[0]
+        if len(commentList) > 0:
+            for comment in commentList:
+                comment.update({"postId": postId})
+                data_app.send_task('videos.data.li.Comment', kwargs={"liComment": comment})
+            if nextUrl:
+                app.send_task("videos.li.comment", args=(nextUrl,))
             return
 
-        raise Exception("some err")
+        if resultCode == '1' and len(commentList) == 0:
+            return
+        raise Exception
     except Exception as e:
         celery.app.base.logger.warn(e)
-        app.send_task("videos.li.comment", args=(url,))
+        app.send_task("videos.li.comment", args=(commentUrl,))
 
 
 if __name__ == '__main__':
-    # pass
-    # for i in range(1000000, 1674000):
-    #     li_url = f"http://app.pearvideo.com/clt/jsp/v4/content.jsp?contId={i}"
-    app.send_task("videos.li.comment", args=(1523532,))
-    # for i in range(1000000, 1674000):
-    # li_url =
-    # app.send_task("videos.li.crawl", args=(li_url,))
-#
+    def publishLiVideos():
+        for i in range(1000000, 1674000):
+            li_url = f"http://app.pearvideo.com/clt/jsp/v4/content.jsp?contId={i}"
+            app.send_task("videos.li.crawl", args=(li_url,))
+
+
+    def publishVideoComments():
+        from models.dataBase.Mongo import liVideoTable
+        postIds = set()
+        for i in liVideoTable.con.find({}, {"postId": 1}):
+            postId = i.get("postId")
+            if postId and postId not in postIds:
+                url = f"http://app.pearvideo.com/clt/jsp/v4/getComments.jsp?postId={postId}&score=&filterIds="
+                app.send_task("videos.li.comment", args=(url,))
+                postIds.add(postId)
+
+
+    publishLiVideos()
+    # publishVideoComments()

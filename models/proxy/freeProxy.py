@@ -5,8 +5,12 @@ from time import sleep
 import threading
 import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
-from models.dataBase.redis import rds
+from models.dataBase.Redis import rds
 from utils.request import getHtmlTree, ex_request
+from utils.LogHandler import LogHandler
+
+log1 = LogHandler('proxyScheduler')
+log2 = LogHandler('usefulProxies')
 
 
 class GetFreeProxy(object):
@@ -32,8 +36,8 @@ class GetFreeProxy(object):
                     port_sum += key.index(c)
                 port = port_sum >> 3
                 yield '{}:{}'.format(ip, port)
-            except Exception as e:
-                print(e)
+            except:
+                pass
 
     @staticmethod
     def freeProxy02(page_count=2):
@@ -53,8 +57,8 @@ class GetFreeProxy(object):
                 for proxy in proxy_list:
                     try:
                         yield ':'.join(proxy.xpath('./td/text()')[0:2])
-                    except Exception as e:
-                        print(str(e))
+                    except:
+                        pass
 
     @staticmethod
     def freeProxy03():
@@ -90,8 +94,8 @@ class GetFreeProxy(object):
                 port /= 8
 
                 yield '{}:{}'.format(ip_addr, int(port))
-            except Exception as e:
-                print(str(e))
+            except:
+                pass
 
     @staticmethod
     def freeProxy04():
@@ -214,7 +218,7 @@ class GetFreeProxy(object):
                 proxy_count_dict[func_name] = len(proxy_list)
             except Exception as e:
                 print(u"代理获取函数 {} 运行出错!".format(func_name))
-                print(str(e))
+                print(e.__traceback__)
         print(u"所有函数运行完毕 " + "***" * 5)
         for func_name, func in member_list:
             print(u"函数 {n}, 获取到代理数: {c}".format(n=func_name, c=proxy_count_dict.get(func_name, 0)))
@@ -271,6 +275,7 @@ def validUsefulProxy(proxy):
             return True
     except:
         pass
+
     return False
 
 
@@ -283,7 +288,8 @@ def ProxyScheduler():
                 if proxy and verifyProxyFormat(proxy) and (proxy not in proxy_set):
                     proxy_set.add(proxy)
                     rds.sadd("proxies", proxy)
-            print(f"proxies size == {rds.scard('proxies')}")
+                    log1.info(f"add {proxy}")
+            log1.info(f"proxies count = {rds.scard('proxies')}")
         except:
             pass
     ProxyCheckThreads(RawProxyCheck, "proxies", 10)
@@ -312,10 +318,10 @@ def RawProxyCheck(p_queue):
         status = validUsefulProxy(proxy)
         if status:
             rds.sadd("useful_proxies", proxy)
-            print(f"add useful_proxies {proxy},useful_proxies size = {rds.scard('useful_proxies')}")
+            log2.info(f"add useful_proxies {proxy},useful_proxies count = {rds.scard('useful_proxies')}")
         else:
             rds.srem("proxies", proxy)
-            print(f"del proxies {proxy},proxies size = {rds.scard('proxies')}")
+            log1.info(f"del proxies {proxy},proxies count = {rds.scard('proxies')}")
         p_queue.task_done()
 
 
@@ -327,7 +333,7 @@ def UsefulProxyCheck(p_queue):
         status = validUsefulProxy(proxy)
         if not status:
             rds.srem("useful_proxies", proxy)
-            print(f"del useful_proxies {proxy},useful_proxies size = {rds.scard('useful_proxies')}")
+            log2.info(f"del useful_proxies {proxy},useful_proxies count = {rds.scard('useful_proxies')}")
         p_queue.task_done()
 
 

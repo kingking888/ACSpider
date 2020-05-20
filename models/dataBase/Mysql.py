@@ -1,10 +1,6 @@
-import configparser
-import os
-
 from DBUtils.PooledDB import PooledDB
+from config.setting import MYSQL
 import pymysql
-
-from ROOT_PATH import root
 
 
 class MysqlPool(object):
@@ -15,16 +11,13 @@ class MysqlPool(object):
         db.conn.commit()
         data = db.cursor.fetchall()
     """
-    conf = configparser.ConfigParser()
-    conf.read(os.path.join(root, "conf.ini"), encoding="utf-8")
-    items = dict(conf.items('mysql'))
     config = {
         'creator': pymysql,
-        'host': items["host"],
-        'port': 3306,
-        'user': items["user"],
-        'password': items["password"],
-        'db': items["db"],
+        'host': MYSQL["host"],
+        'port': MYSQL["port"],
+        'user': MYSQL["user"],
+        'password': MYSQL["password"],
+        'db': MYSQL["db"],
         'maxconnections': 30,
         'cursorclass': pymysql.cursors.DictCursor
     }
@@ -32,10 +25,17 @@ class MysqlPool(object):
     pool = PooledDB(**config)
 
     def __enter__(self):
-        self.conn = MysqlPool.pool.connection()
         self.cursor = self.conn.cursor()
+        self.conn = MysqlPool.pool.connection()
         return self
 
     def __exit__(self, type, value, trace):
         self.cursor.close()
         self.conn.close()
+
+
+if __name__ == '__main__':
+    with MysqlPool() as db:
+        sql = f"""INSERT INTO hot (title) VALUE ('tree')"""
+        db.cursor.execute(sql)
+        db.conn.commit()
