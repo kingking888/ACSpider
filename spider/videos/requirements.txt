@@ -1,0 +1,5 @@
+celery==4.4.2
+requests==2.23.0
+kombu==4.6.8
+asposestorage==1.0.2
+utils==1.0.1

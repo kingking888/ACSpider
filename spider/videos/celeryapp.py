@@ -17,7 +17,3 @@ data_app = Celery(
     ]
 )
 data_app.config_from_object(DataAppConfig)
-
-if __name__ == '__main__':
-    data_app.start()
-

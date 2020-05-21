@@ -33,6 +33,13 @@ def videoTest(self):
     rate_limit='150/s',
 )
 def videoLi(self, url):
+    """
+    梨视频，视频id从1000000增加，遍历全部id获得视频
+    如果正常resultCode只有1和5，其他异常重新加入队列
+    :param self:
+    :param url:
+    :return:
+    """
     try:
         XSerialNum = str(int(time.time()))
         XClientID = "861" + randomString(12)
@@ -57,7 +64,7 @@ def videoLi(self, url):
         resultCode = res.get("resultCode")
         if resultCode == '1':
             content = res.get("content")
-            data_app.send_task('videos.data.li', kwargs={"liVideo": content})
+            data_app.send_task('videos.data.li.Video', kwargs={"liVideo": content})
             return
         if resultCode == '5':
             return
@@ -75,6 +82,13 @@ def videoLi(self, url):
     rate_limit='150/s',
 )
 def videoLiComment(self, commentUrl):
+    """
+    根据视频的postId拼评论url，评论没有postId字段，需要添加
+    时间格式有问题
+    :param self:
+    :param commentUrl:
+    :return:
+    """
     try:
         XSerialNum = str(int(time.time()))
         XClientID = "861" + randomString(12)
@@ -118,7 +132,7 @@ def videoLiComment(self, commentUrl):
 
 if __name__ == '__main__':
     def publishLiVideos():
-        for i in range(1000000, 1674000):
+        for i in range(1000000, 1680000):
             li_url = f"http://app.pearvideo.com/clt/jsp/v4/content.jsp?contId={i}"
             app.send_task("videos.li.crawl", args=(li_url,))
 
@@ -134,5 +148,5 @@ if __name__ == '__main__':
                 postIds.add(postId)
 
 
-    publishLiVideos()
-    # publishVideoComments()
+    # publishLiVideos()
+    publishVideoComments()

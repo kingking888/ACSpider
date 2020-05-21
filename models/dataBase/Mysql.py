@@ -5,6 +5,7 @@ import pymysql
 
 class MysqlPool(object):
     """
+    效果未知
     example:
     with MysqlPool() as db:
         db.cursor.execute("select uid from data_user_douyin limit 500")

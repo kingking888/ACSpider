@@ -3,6 +3,10 @@ from config.setting import MONGO
 
 
 class MongoDB:
+    """
+    常用语句，用self.con获取cursor
+    避免重复创建
+    """
     def __init__(self, db, table):
         self.client = MongoClient(MONGO["host"], MONGO["port"])
         if MONGO.get("user") and MONGO.get("password"):

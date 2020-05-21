@@ -5,6 +5,9 @@ from models.dataBase.Mongo import liVideoTable
 
 @data_app.task(name='videos.data.test')
 def data_video_test(**kwargs):
+    """
+    存到mysql
+    """
     words = kwargs.get("words")
     if words:
         for word in words:
@@ -16,6 +19,9 @@ def data_video_test(**kwargs):
 
 @data_app.task(name='videos.data.li.Video')
 def data_li_video(**kwargs):
+    """
+    取数据，存到mongodb
+    """
     liVideo = kwargs.get("liVideo")
     if liVideo:
         liVideoTable.updateOne(liVideo["contId"], liVideo)

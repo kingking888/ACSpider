@@ -4,6 +4,9 @@ from lxml import html
 
 
 def retry(times=1):
+    """
+    装饰器，主要用于重试
+    """
     def decorator(func):
         def wrapper(*args, **kwargs):
             t = times
@@ -23,8 +26,6 @@ def retry(times=1):
 def getHtmlTree(url):
     """
     获取html树
-    :param url:
-    :return:
     """
     headers = {'Connection': 'keep-alive',
                'Cache-Control': 'max-age=0',
@@ -42,8 +43,6 @@ def getHtmlTree(url):
 def ex_request(url):
     """
     执行requests
-    :param url:
-    :return:
     """
     ua_list = [
         'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101',

@@ -1,7 +1,9 @@
 import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from rootPath import ROOT_PATH
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
 
 # 日志级别
 CRITICAL = 50
@@ -13,7 +15,7 @@ INFO = 20
 DEBUG = 10
 NOTSET = 0
 
-LOG_PATH = ROOT_PATH + '\log'
+LOG_PATH = rootPath + '\log'
 
 if not os.path.exists(LOG_PATH):
     os.mkdir(LOG_PATH)
@@ -21,7 +23,9 @@ if not os.path.exists(LOG_PATH):
 
 class LogHandler(logging.Logger):
     """
-    LogHandler
+    参考https://github.com/jhao104/proxy_pool
+    celery已集成日志功能
+    LogHandler主要用于proxy_pool日志
     """
 
     def __init__(self, name, level=DEBUG, stream=True, file=True):

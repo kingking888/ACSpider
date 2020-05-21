@@ -2,11 +2,15 @@ from kombu import Exchange, Queue, binding
 from celery.schedules import crontab
 from config.setting import RABBITMQ
 
-
 def create_task_queues(exchange_name, binding_list):
+    """
+    批量创建Queue
+    :param exchange_name:exchange名称
+    :param binding_list:(routing_keys，queue)列表
+    :return:[Queue(),Queue(),...]
+    """
     binding_map = {}
     exchange = Exchange(exchange_name, type="topic")
-
     queues = []
     for routing_key, queue_name in binding_list:
         binding_map.setdefault(queue_name, [])
@@ -24,6 +28,17 @@ def create_task_queues(exchange_name, binding_list):
 
 
 def route_task(name, args, kwargs, options, task=None, **kw):
+    """
+    参照Routing Tasks定义路由器函数，在定义task name时和routing_key一致可以避免多写task_routes规则
+    在task_routes直接传递route_task地址，route_task参数怎么用在文档里没找到
+    :param name: task name
+    :param args:
+    :param kwargs:
+    :param options:
+    :param task:
+    :param kw:
+    :return:
+    """
     return {
         "exchange": "videos.crawl",
         "exchange_type": "topic",
@@ -32,15 +47,23 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class AppConfig(object):
+    """
+    class配置写法，配置名称固定，celery4版本以后小写+下划线写法
+    """
     broker_url = f"amqp://{RABBITMQ['user']}:{RABBITMQ['password']}@{RABBITMQ['host']}/"
+    # 全局开启返回任务结果
     task_ignore_result = True
+    # 只返回失败结果
+    # task_store_errors_even_if_ignored = True
     task_serializer = "json"
     accept_content = ["json"]
     task_default_queue = "default"
     task_default_exchange = "default"
     task_default_routing_key = "default"
     imports = ["spider.videos.tasks.tasks"]
-    celeryd_max_tasks_per_child = 50
+    # worker执行100个任务销毁，防止内存泄露
+    celeryd_max_tasks_per_child = 100
+    # 单个任务的运行时间不超过60s，超过会被SIGKILL信号杀死
     celeryd_task_time_limit = 60
     bindings = [
 

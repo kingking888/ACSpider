@@ -5,6 +5,13 @@ from time import sleep
 import threading
 import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
+import os
+import sys
+# 解决引用问题，添加上上级项目目录，单文件可运行
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(os.path.split(curPath)[0])[0]
+sys.path.append(rootPath)
+
 from models.dataBase.Redis import rds
 from utils.request import getHtmlTree, ex_request
 from utils.LogHandler import LogHandler
@@ -14,6 +21,12 @@ log2 = LogHandler('usefulProxies')
 
 
 class GetFreeProxy(object):
+    """
+    参考https://github.com/jhao104/proxy_pool
+    扒出来爬虫和检测代码，重写了逻辑
+    用BlockingScheduler实现定时任务，爬取代理存入proxies，检验可用存入useful_proxies
+    """
+
     @staticmethod
     def freeProxy01():
         """
@@ -209,6 +222,10 @@ class GetFreeProxy(object):
 
     @classmethod
     def checkAllGetProxyFunc(cls):
+        """
+        检验所有代理状态，代理用@staticmethid 类型是function，其他用@classmethod 类型是method，用inspect.isfunction来区别
+        :return:
+        """
         member_list = inspect.getmembers(cls, predicate=inspect.isfunction)
         proxy_count_dict = dict()
         for func_name, func in member_list:
@@ -251,8 +268,6 @@ class GetFreeProxy(object):
 def verifyProxyFormat(proxy):
     """
     检查代理格式
-    :param proxy:
-    :return:
     """
     import re
     verify_regex = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}"
@@ -263,8 +278,6 @@ def verifyProxyFormat(proxy):
 def validUsefulProxy(proxy):
     """
     检验代理是否可用
-    :param proxy:
-    :return:
     """
     if isinstance(proxy, bytes):
         proxy = proxy.decode("utf8")
