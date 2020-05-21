@@ -6,6 +6,7 @@ import time
 from spider.videos.celeryapp import app, data_app
 from utils.encrypt import md5_string
 from utils.randomStr import randomString
+from models.proxy.getProxy import getOneProxy
 
 
 @app.task(
@@ -60,7 +61,7 @@ def videoLi(self, url):
             "Connection": "Keep-Alive",
             "Accept-Encoding": "gzip",
             "User-Agent": "okhttp/3.11.0"}
-        res = requests.get(url, headers=headers, timeout=5).json()
+        res = requests.get(url, headers=headers, timeout=5, proxies=getOneProxy()).json()
         resultCode = res.get("resultCode")
         if resultCode == '1':
             content = res.get("content")
@@ -109,7 +110,7 @@ def videoLiComment(self, commentUrl):
             "Connection": "Keep-Alive",
             "Accept-Encoding": "gzip",
             "User-Agent": "okhttp/3.11.0"}
-        res = requests.get(commentUrl, headers=headers, timeout=5).json()
+        res = requests.get(commentUrl, headers=headers, timeout=5, proxies=getOneProxy()).json()
         resultCode = res.get("resultCode")
         commentList = res.get("commentList")
         nextUrl = res.get("nextUrl")
@@ -148,5 +149,5 @@ if __name__ == '__main__':
                 postIds.add(postId)
 
 
-    # publishLiVideos()
-    publishVideoComments()
+    publishLiVideos()
+    # publishVideoComments()

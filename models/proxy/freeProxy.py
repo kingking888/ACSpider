@@ -7,6 +7,7 @@ import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
 import os
 import sys
+
 # 解决引用问题，添加上上级项目目录，单文件可运行
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(os.path.split(curPath)[0])[0]
@@ -292,7 +293,7 @@ def validUsefulProxy(proxy):
     return False
 
 
-def ProxyScheduler():
+def addProxies():
     proxy_set = set()
     for i in GetFreeProxy.proxyNames():
         try:
@@ -305,6 +306,10 @@ def ProxyScheduler():
             log1.info(f"proxies count = {rds.scard('proxies')}")
         except:
             pass
+
+
+def ProxyScheduler():
+    addProxies()
     ProxyCheckThreads(RawProxyCheck, "proxies", 10)
     ProxyCheckThreads(UsefulProxyCheck, "useful_proxies", 5)
 
@@ -353,10 +358,11 @@ def UsefulProxyCheck(p_queue):
 def runProxy():
     ProxyScheduler()
     scheduler = BlockingScheduler()
-    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(RawProxyCheck, "proxies", 10), minutes=7,
-                      id="raw_proxy_check", name="raw_proxy定时采集")
+    scheduler.add_job(addProxies, trigger='interval', minutes=10, id="addProxies", name="添加proxies")
+    scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(RawProxyCheck, "proxies", 10), minutes=10,
+                      id="RawProxyCheck", name="proxy定时检查")
     scheduler.add_job(ProxyCheckThreads, trigger='interval', args=(UsefulProxyCheck, "useful_proxies", 5), minutes=2,
-                      id="useful_proxy_check", name="useful_proxy定时检查")
+                      id="UsefulProxyCheck", name="useful_proxy定时检查")
     scheduler.start()
 
 
